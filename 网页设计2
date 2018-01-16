@@ -1,0 +1,194 @@
+'use strict'
+
+axios.defaults.withCredentials = true;
+axios.defaults.headers.post['Content-Type'] = 'application/json';
+
+/**
+ * @param {string} api
+ * @param {object} payload
+ * @returns {Promise<object>}
+ */
+function invoke(api, payload) {
+  return axios.post(api, payload || {}).then(s => s.data).catch(function () {
+    alert('请求数据失败。');
+    console.error(api, payload);
+  })
+}
+
+function getBigFactor(a, b) {
+  if (b == 0) { return a; }
+  return getBigFactor(b, a % b)
+}
+
+/**
+ * @param {string} s
+ * @return {string} 
+ */
+function sanity_answer(s) {
+  var m;
+  s = s.replace(/\s+/g, '');
+  if (m = /^(\-?\d+)[\/、]+(\d+)$/.exec(s)) {
+    var a = ~~m[1], b = ~~m[2];
+    var f = getBigFactor(a, b);
+    return (a / f) + '/' + (b / f);
+  } else if (!/^\-?\d+$/.test(s)) {
+    s = "";
+  }
+  return s;
+}
+
+var vm = new Vue({
+  el: '#app',
+  data() {
+    return {
+      tab: 1,
+      history: [],
+
+      new_questions: [{ question: "", correct_answer: "" }],
+      train_started: false,
+      train_myanswer: "",
+
+      timer_since: 0,
+      timer_elapsed: 0,
+      quiz_submitted: false,
+      quiz_result: "",
+    }
+  },
+  watch: {
+    tab(newTab) {
+      this.train_started = false;
+      switch (newTab) {
+        case 1: this.newQuestion(1); break;
+        case 2: this.reloadHistory(); break;
+        case 4: this.reloadHistory({ wrong: true }); break;
+      }
+    }
+  },
+  mounted() {
+    setInterval(() => {
+      this.timer_elapsed = (+new Date()) - this.timer_since
+    }, 200)
+    this.reloadHistory()
+  },
+  methods: {
+    train_next() {
+      this.train_started = false;
+      this.quiz_submitted = false;
+      invoke('/new', { count: 1 }).then(q => {
+        this.train_started = true;
+        this.new_questions = q;
+        this.timer_since = +new Date();
+        this.train_myanswer = "";
+        this.$nextTick(() => {
+          document.querySelector('input.answer').focus()
+        })
+      })
+    },
+
+    quiz_start() {
+      this.train_started = false;
+      this.quiz_submitted = false;
+      invoke('/new', { count: 5 }).then(q => {
+        for (let i = 0; i < q.length; i++) {
+          q[i].answer = "";
+        }
+        this.train_started = true;
+        this.new_questions = q;
+        this.timer_since = +new Date();
+      })
+    },
+
+    quiz_submit() {
+      this.quiz_submitted = true;
+
+      var source = "quiz-" + Math.round(1e9 * Math.random()).toString(36);
+      var solved_time = (+new Date()) - this.timer_since;
+      var date = new Date(this.timer_since).toISOString();
+      var questions = this.new_questions;
+      var correct_count = 0;
+
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        q.answer = sanity_answer(q.answer);
+        if (q.answer == q.correct_answer) correct_count++;
+
+        invoke('/history/write', {
+          question: q.question,
+          answer: q.answer,
+          correct_answer: q.correct_answer,
+          created_at: date,
+          solved_time,
+          source,
+        })
+      }
+
+      this.quiz_result =
+        Math.ceil(solved_time / 6e4) + "分钟完成了 " + questions.length +
+        " 个题目，做对了 " + correct_count + "题。" +
+        "得分：" + ~~(100 * correct_count / questions.length) + "分！"
+    },
+
+    train_submit() {
+      var solved_time = (+new Date()) - this.timer_since;
+      var correct_answer = this.new_questions[0].correct_answer;
+      var answer = sanity_answer(this.train_myanswer);
+
+      var msg = ""
+      if (correct_answer == answer) msg = "恭喜你！回答正确！";
+      else msg = "哎呀，算错了。正确答案是 " + correct_answer + "。";
+
+      msg += "\n用时 " + (solved_time / 1000).toFixed(2) + " 秒"
+      alert(msg)
+
+      invoke('/history/write', {
+        question: this.new_questions[0].question,
+        answer,
+        correct_answer,
+        created_at: new Date(this.timer_since).toISOString(),
+        solved_time,
+        source: "train"
+      })
+
+      this.train_next()
+    },
+
+    newQuestion(count) {
+      invoke('/new', { count: count || 1 }).then(q => this.new_questions = q)
+    },
+    reloadHistory(filter) {
+      invoke('/history', filter || {}).then(hs => this.history = hs)
+    },
+    correctHistory(q) {
+      var solved_time = +new Date();
+      var answer = prompt(q.question + " = ?");
+      if (!answer) return;
+
+      solved_time = (+new Date()) - solved_time;
+      answer = sanity_answer(answer);
+
+      if (answer == q.correct_answer) {
+        alert("恭喜你，回答正确。用时" + (solved_time / 1000).toFixed(3) + '秒');
+        invoke('/history/update', {
+          id: q.id,
+          answer,
+          solved_time,
+        })
+
+        q.solved_time = solved_time
+        q.answer = answer
+      } else {
+        alert("计算错了，再看看吧")
+      }
+    },
+
+    alert2(txt) {
+      alert(txt)
+    },
+    date_fmt(s) {
+      return new Date(s).toLocaleString()
+    },
+    fmt_q(s) {
+      return s.replace(/\//g, '÷').replace(/\*/g, '×').replace(/\+/g, '＋').replace(/\-/g, '－')
+    },
+  }
+})
