@@ -1,0 +1,55 @@
+[v-cloak] {
+    display: none;
+}
+
+#app {
+    max-width: 800px;
+    margin: auto;
+    font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+}
+
+.page_name {
+    font-size: 24px;
+}
+
+table.history {
+    border-spacing: 0;
+}
+
+table.history th,
+table.history td {
+    padding: 2px 8px;
+}
+
+table.history .correct td {
+  background-color: #AFA;
+}
+table.history .wrong td {
+  background-color: #FAA;
+}
+
+.question {
+    font-size: 36px;
+}
+.answer {
+    font-size: 24px;
+}
+
+table.quiz {
+    border: 0;
+    border-spacing: 5px;
+}
+.quiz_result {
+    width: 32px;
+    height: 32px;
+    font-size: 28px;
+    color: #F33;
+}
+
+.quiz_result.correct:before {
+    content: '√'
+}
+
+.quiz_result.wrong:before {
+    content: '×'
+}
