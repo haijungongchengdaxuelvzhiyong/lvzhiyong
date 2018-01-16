@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>计算</title>
+</head>
+
+<body>
+    <div id="app" v-cloak>
+        <p align="center">
+            <select v-model.number="tab" class="page_name">
+                <option value="1">练习模式</option>
+                <option value="2">历史记录</option>
+                <option value="3">测验模式</option>
+                <option value="4">我的错题本</option>
+            </select>
+        </p>
+
+        <div class="content" v-if="tab==1" style="text-align:center">
+            <div v-if="!train_started">
+                <p>练习模式下，每次会出现一道题目，请尽快完成。</p>
+                <p>
+                    <button @click="train_next">开始做题</button>
+                </p>
+            </div>
+            <form @submit.prevent="train_submit" v-else>
+                <p class="question">{{ fmt_q(new_questions[0].question) }}</p>
+                <p>
+                    <input type="text" class="answer" v-model="train_myanswer" placeholder="输入答案" required>
+                    <button type="submit" class="answer">提交</button>
+                </p>
+                <p>时间：{{ timer_elapsed/1000 }} 秒</p>
+            </form>
+        </div>
+
+        <div class="content" v-if="tab==2||tab==4">
+            <table border="1" class="history">
+                <tr>
+                    <th>题目</th>
+                    <th>你的答案</th>
+                    <th>判断</th>
+                    <th>日期</th>
+                    <th v-if="tab==4"></th>
+                </tr>
+
+                <tr v-for="item in history" :class="(item.correct_answer==item.answer)?'correct':'wrong'">
+                    <td>{{ fmt_q(item.question) }}</td>
+                    <td @dblclick.prevent="alert2(item.correct_answer)">{{ item.answer }}</td>
+                    <td>{{ item.answer == item.correct_answer ? "正确" : "错误" }}</td>
+                    <td>{{ date_fmt(item.created_at) }}</td>
+                    <td v-if="tab==4">
+                        <button :disabled="item.correct_answer==item.answer" @click="correctHistory(item)">改错</button>
+                    </td>
+                </tr>
+            </table>
+
+            <p v-if="tab==2">注：双击错误答案，可以查看正确答案</p>
+        </div>
+
+        <div class="content" v-if="tab==3" style="text-align:center">
+            <div v-if="!train_started">
+                <p>测验模式下，每次会出现多个题目，请尽快完成后提交考卷。</p>
+                <p>
+                    <button @click="quiz_start">开始做题</button>
+                </p>
+            </div>
+            <form @submit.prevent="quiz_submit" v-else>
+                <table class="quiz">
+                    <tr>
+                        <th>问题</th>
+                        <th>答案</th>
+                    </tr>
+                    <tr v-for="q in new_questions">
+                        <td class="question" style="text-align:right">{{ fmt_q(q.question) }} = </td>
+                        <td>
+                            <input type="text" class="answer" required v-model="q.answer">
+                        </td>
+                        <td v-if="quiz_submitted" :class="'quiz_result ' + ((q.correct_answer==q.answer)?'correct':'wrong')"></td>
+                    </tr>
+                </table>
+
+                <p v-if="quiz_submitted">
+                    {{ quiz_result }}
+                    <button @click="quiz_start">再来一次</button>
+                </p>
+                <div v-else>
+                    <p><button type="submit">提交试卷</button></p>
+                    <p>时间：{{ timer_elapsed/1000 }} 秒</p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="3rd/polyfill.min.js"></script>
+    <script src="3rd/axios.min.js"></script>
+    <script src="3rd/vue.min.js"></script>
+    <script src="index.js"></script>
+</body>
+
+</html>
